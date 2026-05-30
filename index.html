@@ -1,239 +1,9 @@
-
-Чат с Gemini
-salut sunt gabi si vreau sa fac o aplicatie care face fotografii cu diferite filtre dar pozele se salveaza si in acea aplicatie si in galerie
-
-Salut, Gabi! Sună a un proiect super interesant. Pentru a construi o astfel de aplicație (mai ales că ai menționat în trecut interesul pentru tehnologii web), cel mai accesibil mod de a începe este să folosești HTML5, CSS și JavaScript (eventual împachetat cu un instrument precum Capacitor sau Cordova dacă vrei să o pui direct pe telefon ca aplicație nativă).
-
-Pentru a obține exact ce îți dorești — salvarea imaginii atât în interiorul aplicației (galerie proprie), cât și în galeria foto a telefonului — fluxul logic arată cam așa:
-
-Cum va funcționa aplicația (Logica din spate)
-Preluarea imaginii: Folosești camera dispozitivului prin API-ul web (getUserMedia) sau un buton de încărcare fișier.
-
-Aplicarea filtrelor: Folosești un element HTML5 de tip <canvas>. JavaScript modifică pixelii imaginii sau aplică filtre CSS (cum ar fi sepia, blur, grayscale) direct peste canvas.
-
-Salvarea Dublă:
-
-În aplicație: Imaginea este transformată într-un string de text (bază de date locală de tip localStorage sau IndexedDB) sub formă de URL de date (data:image/png;base64...). Astfel, când deschizi aplicația, ea își poate citi propria „galerie”.
-
-În galeria telefonului: Se generează un link de descărcare automat care declanșează salvarea fișierului în folderul de descărcări/galerie al utilizatorului.
-
-Un exemplu simplu de cod (HTML + JavaScript)
-Iată o structură de bază de la care poți porni pentru a înțelege cum se procesează imaginea și cum se salvează:
-
-1. Interfața (HTML)
-HTML
-<!DOCTYPE html>
-<html lang="ro">
-<head>
-    <meta charset="UTF-8">
-    <title>Foto Filtre Gabi</title>
-    <style>
-        body { font-family: sans-serif; text-align: center; background: #f4f4f4; }
-        #canvas { max-width: 100%; border: 2px solid #ccc; margin-top: 10px; }
-        .controale { margin: 15px 0; }
-        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
-    </style>
-</head>
-<body>
-
-    <h1>Aplicație Foto cu Filtre</h1>
-    
-    <input type="file" id="incarca-foto" accept="image/*" capture="environment">
-    
-    <br>
-    <canvas id="canvas"></canvas>
-    
-    <div class="controale">
-        <button onclick="aplicaFiltru('none')">Normal</button>
-        <button onclick="aplicaFiltru('grayscale(100%)')">Alb-Negru</button>
-        <button onclick="aplicaFiltru('sepia(100%)')">Sepia</button>
-        <button onclick="aplicaFiltru('invert(100%)')">Inversat</button>
-    </div>
-
-    <button id="btn-salveaza" style="background: green; color: white;">Salvează Foto</button>
-
-    <h2>Galeria Mea (În Aplicație)</h2>
-    <div id="galerie-locala"></div>
-
-    <script src="app.js"></script>
-</body>
-</html>
-2. Logica (JavaScript - app.js)
-JavaScript
-const incarcăFoto = document.getElementById('incarca-foto');
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-const btnSalveaza = document.getElementById('btn-salveaza');
-const galerieLocala = document.getElementById('galerie-locala');
-
-let imagineOriginala = new Image();
-
-// 1. Încărcarea imaginii pe canvas
-incarcăFoto.addEventListener('change', (e) => {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        imagineOriginala.onload = () => {
-            canvas.width = imagineOriginala.width;
-            canvas.height = imagineOriginala.height;
-            ctx.filter = 'none';
-            ctx.drawImage(imagineOriginala, 0, 0);
-        };
-        imagineOriginala.src = event.target.result;
-    };
-    reader.readAsDataURL(e.target.files[0]);
-});
-
-// 2. Aplicarea filtrului direct pe contextul Canvas-ului
-function aplicaFiltru(filtruCSS) {
-    if (!imagineOriginala.src) return;
-    ctx.filter = filtruCSS;
-    ctx.drawImage(imagineOriginala, 0, 0); // Redesenăm cu filtrul aplicat
-}
-
-// 3. Salvarea dublă (În Galerie și În Aplicație)
-btnSalveaza.addEventListener('click', () => {
-    if (!imagineOriginala.src) return alert("Încarcă o poză mai întâi!");
-
-    // Transformă canvas-ul într-o imagine utilizabilă
-    const imagineSalvata = canvas.toDataURL('image/png');
-
-    // --- SALVARE ÎN GALERIA TELEFONULUI / PC ---
-    const linkDescarcare = document.createElement('a');
-    linkDescarcare.download = 'foto_filtru_gabi.png';
-    linkDescarcare.href = imagineSalvata;
-    linkDescarcare.click(); // Simulează click-ul pentru descărcare
-
-    // --- SALVARE ÎN APLICAȚIE (Local Storage) ---
-    // Notă: LocalStorage are o limită de ~5MB, ideal pentru câteva poze de test.
-    let pozeSalvate = JSON.parse(localStorage.getItem('galerie_gabi')) || [];
-    pozeSalvate.push(imagineSalvata);
-    localStorage.setItem('galerie_gabi', JSON.stringify(pozeSalvate));
-
-    afiseazaGaleriaAplicatiei();
-});
-
-// Funcție pentru a încărca pozele salvate în aplicație la pornire
-function afiseazaGaleriaAplicatiei() {
-    galerieLocala.innerHTML = '';
-    let pozeSalvate = JSON.parse(localStorage.getItem('galerie_gabi')) || [];
-    
-    pozeSalvate.forEach(src => {
-        const img = document.createElement('img');
-        img.src = src;
-        img.style.width = '100px';
-        img.style.margin = '5px';
-        img.style.border = '1px solid #000';
-        galerieLocala.appendChild(img);
-    });
-}
-
-// Afișează pozele deja salvate când se deschide pagina
-afiseazaGaleriaAplicatiei();
-Note importante pentru când vrei să o transformi în aplicație de telefon mobil:
-localStorage vs IndexedDB: Imaginile transformate în text (DataURL) ocupă mult spațiu. localStorage te va lăsa să salvezi doar 2-3 poze mari. Pentru o galerie reală în interiorul aplicației, va trebui să folosești IndexedDB (o bază de date locală mai mare inclusă în browsere) sau un plugin de file system dacă o transformi în app de mobil.
-
-Permisiunile pe Mobil: Când rulezi codul într-un browser pe telefon, capture="environment" va deschide direct camera foto. Când utilizatorul apasă pe descărcare, browserul va salva poza în folderul "Downloads" (care apare și în Galeria foto a telefonului).
-
-Vrei să ne concentrăm mai întâi pe designul interfeței (să arate modern și curat), sau vrei să extindem partea de filtre și stocare mai avansată?
-
-vreau intrun fisier
-
-Am creat un singur fișier complet (index.html) care conține absolut tot ce ai nevoie: interfața (HTML), stilul vizual modern cu temă întunecată (CSS) și toată logica de procesare și salvare dublă (JavaScript).
-
-Aplicația ta este pregătită. O poți descărca de mai jos:
-Значок HTML-файла
- index 
-HTML
-
-Ce conține acest fișier și cum funcționează?
-Afișare modernă (Dark Mode): Are un design curat, optimizat pentru ecranele de telefon mobil.
-
-Acces la Cameră: Pe telefon, butonul 📸 Fă o poză / Încarcă va deschide direct camera foto nativă a dispozitivului. Pe PC, îți va deschide managerul de fișiere pentru a alege o poză.
-
-Carusel de filtre: Poți trece rapid prin filtre ca Alb-Negru, Sepia, Inversat, Cyberpunk sau Vibrant.
-
-Salvarea Dublă (Exact cum ai cerut):
-
-În Galerie / Telefon: Când apeși pe butonul de salvare, se simulează o descărcare rapidă. Pe Android/iOS, această acțiune trimite imaginea procesată direct în folderul de descărcări, care este indexat instantaneu în Galeria foto generală a telefonului.
-
-În Aplicație: Am integrat IndexedDB (o bază de date performantă din interiorul browserului). Imaginile sunt salvate local acolo, ceea ce înseamnă că rămân salvate în galeria din interiorul aplicației chiar dacă închizi pagina sau dai refresh.
-
-Cum să o folosești și să o testezi:
-Descarcă fișierul index.html.
-
-Pentru a o testa pe PC, dă dublu-click pe fișier și se va deschide direct în browser (Chrome, Edge, Firefox, etc.).
-
-Pentru a o testa pe telefon, trimite-ți fișierul pe telefon (prin WhatsApp, Mail sau Google Drive) și deschide-l cu browserul mobil (Chrome sau Safari).
-
-adauga mai multe functii si filtre si adauga sa se poata conecta la camera si explicami cum pot salva pozele in galerie
-
-Am actualizat aplicația într-un singur fișier extins, adăugând ajustări manuale (luminozitate, contrast, saturație), filtre noi, un sistem de conectare directă la camera video în timp real (live stream) și opțiunea de a schimba între camera principală și cea frontală.
-
-Iată mai întâi fișierul complet pe care îl poți descărca:
-
-[file-tag: code-generated-file-1-4965873919106093407]
-
-Explicare: Cum funcționează salvarea în galeria telefonului?
-Pentru ca o aplicație web (HTML + JavaScript) să poată trimite o imagine în galeria fizică a telefonului tău fără să fie instalată din App Store sau Google Play, ea folosește un mic „truc” nativ al browserelor numit Data URL combinat cu declanșarea unei descărcări automate.
-
-Iată pașii exacți prin care codul de mai sus realizează acest lucru:
-
-1. Capturarea pixelilor finali (canvas.toDataURL)
-Când aplici filtre sau modifici luminozitatea, browserul nu modifică o imagine de pe disc, ci modifică o matrice de pixeli pe un element invizibil sau vizibil numit <canvas> (o pânză de desenat virtuală).
-În momentul în care apeși pe butonul de salvare, rulăm această linie de cod:
-
-JavaScript
-const imagineSalvata = canvas.toDataURL('image/png');
-Această funcție preia toți pixelii desenați pe ecran și îi transformă într-un text foarte lung (un cod Base64) care începe cu data:image/png;base64,.... Acest text reprezintă, de fapt, imaginea însăși convertită în cod.
-
-2. Simularea unui „Click” invizibil de descărcare
-Pentru a forța telefonul sau calculatorul să descarce acel cod ca pe un fișier real, JavaScript creează un element de tip link (<a>), îi atașează imaginea codificată și simulează un click:
-
-JavaScript
-const linkDescarcare = document.createElement('a'); // Cream un link <a> in memorie
-linkDescarcare.download = 'Foto_Gabi.png';          // Îi spunem cum să se numească fișierul
-linkDescarcare.href = imagineSalvata;                // Îi dăm codul imaginii ca destinație
-linkDescarcare.click();                             // Îl „apăsăm” automat prin cod
-3. Intercepția sistemului de operare (Android / iOS)
-Când browserul (Chrome, Safari, Opera) primește comanda de descărcare a unui fișier de tip .png sau .jpg:
-
-Pe Android: Browserul descarcă fișierul direct în folderul Downloads (Descărcări). Sistemul Android are un serviciu numit Media Scanner care rulează în fundal. Acesta observă instantaneu că a apărut o imagine nouă în Descărcări și o indexează automant, făcând-o să apară imediat în aplicația „Galerie” sau „Google Photos” la secțiunea „Recente” sau „Descărcate”.
-
-Pe iOS (iPhone): Safari va deschide o fereastră pop-up și te va întreba dacă vrei să descarci imaginea. Odată descărcată, ea ajunge în managerul de fișiere (Files). Utilizatorul poate de asemenea să țină apăsat pe imaginea finală din aplicație și să selecteze "Save to Photos".
-
-Ce funcții noi am adăugat în fișierul actualizat?
-Modul Cameră Live (Flux video direct): Aplicația încearcă acum să pornească camera video a telefonului sau a laptopului direct în pagină (navigator.mediaDevices.getUserMedia). Poți vedea imaginea în timp real și poți schimba între camera din față (selfie) și cea din spate (Switch Camera).
-
-Buton de Captură (Snapshot): Când imaginea video live arată bine, apeși pe 📸 Capturează instantaneu și aplicația „îngheață” cadrul pe canvas pentru a-i aplica filtre.
-
-Sursă alternativă: Dacă nu vrei cameră live, ai rămas în continuare cu butonul de încărcare a unei poze din memoria telefonului.
-
-Slidere de Ajustare Manuală: Am adăugat 3 cursoare (slidere) pentru control fin:
-
-Luminozitate (Brightness)
-
-Contrast
-
-Saturație (Cât de vii să fie culorile)
-
-Filtre Noi: Pe lângă cele vechi, am adăugat filtre mai complexe din CSS, cum ar fi Vintage (Sepia + Contrast), Cool Blur și Monochrome intens.
-
-Cum testezi funcția de cameră directă?
-Pentru ca browserul să îți permită să accesezi camera video direct în pagină, fișierul trebuie deschis într-un mediu securizat (pe telefon va funcționa direct prin încărcarea fișierului, sau dacă ridici un server local de test precum Live Server în VS Code). Când pornești aplicația, browserul te va întreba "Permiteți accesul la cameră?" — trebuie să apeși Permite (Allow).
-
-pai fa tot codul te rog
-
-Iată codul complet, extins și gata de utilizare. Am unit toate funcțiile noi (camera în timp real, comutarea între camere, sliderele pentru ajustări manuale de luminozitate/contrast/saturație, filtrele noi și salvarea dublă) într-un singur fișier compact.
-
-Tot ce trebuie să faci este să copiezi codul de mai jos, să îl salvezi într-un fișier numit index.html și să îl deschizi.
-
-HTML
 <!DOCTYPE html>
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gabi Advanced Filter Cam</title>
+    <title>Gabi Live Filter Cam & Video</title>
     <style>
         * {
             box-sizing: border-box;
@@ -268,7 +38,7 @@ HTML
             color: #00adb5;
         }
 
-        /* Zona Media (Video + Canvas) */
+        /* Zona Media unificată pentru Live Preview */
         .media-container {
             width: 100%;
             position: relative;
@@ -282,11 +52,13 @@ HTML
             justify-content: center;
         }
 
+        /* Aplicăm filtrele CSS direct pe video sau canvas pentru previzualizare INSTANT */
         video, canvas {
             width: 100%;
             max-height: 450px;
             object-fit: contain;
             border-radius: 8px;
+            transition: filter 0.1s ease;
         }
 
         video {
@@ -297,8 +69,30 @@ HTML
             display: none;
         }
 
-        /* Butoane Principale Sursă */
-        .source-controls {
+        /* Bulină roșie pentru când înregistrează video */
+        .recording-badge {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: red;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            display: none;
+            animation: blink 1s infinite;
+            z-index: 10;
+        }
+
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+
+        /* Butoane de Control */
+        .controls-row {
             display: flex;
             gap: 10px;
             justify-content: center;
@@ -313,19 +107,30 @@ HTML
             font-weight: bold;
             cursor: pointer;
             transition: background 0.2s, transform 0.1s;
-            font-size: 14px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
         }
 
         .btn:active { transform: scale(0.97); }
 
         .btn-primary { background: #00adb5; color: white; }
         .btn-secondary { background: #393e46; color: #eeeeee; }
-        .btn-capture { background: #ff5722; color: white; }
-        .btn-save { background: #4caf50; color: white; width: 100%; font-size: 16px; padding: 12px; margin-top: 10px; }
+        .btn-success { background: #4caf50; color: white; }
+        .btn-danger { background: #f44336; color: white; }
+        
+        .btn-action-main {
+            width: 100%;
+            font-size: 16px;
+            padding: 12px;
+            margin-top: 5px;
+            justify-content: center;
+        }
 
         input[type="file"] { display: none; }
 
-        /* Slidere Ajustări */
+        /* Panou Ajustări Manuale */
         .adjustments-panel {
             background: #2d2d2d;
             padding: 12px;
@@ -419,18 +224,37 @@ HTML
 
         .gallery-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(85px, 1fr));
             gap: 8px;
-            max-height: 160px;
+            max-height: 180px;
             overflow-y: auto;
         }
 
-        .gallery-grid img {
+        .gallery-grid .gallery-item {
+            position: relative;
             width: 100%;
-            height: 75px;
-            object-fit: cover;
+            height: 85px;
+            background: #000;
             border-radius: 6px;
+            overflow: hidden;
             border: 1px solid #333;
+        }
+
+        .gallery-grid img, .gallery-grid video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .video-icon {
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            background: rgba(0,0,0,0.7);
+            color: #fff;
+            font-size: 10px;
+            padding: 2px 4px;
+            border-radius: 3px;
         }
 
         .empty-text { color: #555; font-size: 13px; font-style: italic; }
@@ -439,9 +263,10 @@ HTML
 <body>
 
     <div class="container">
-        <h1>Gabi's Pro Filter Cam</h1>
+        <h1>Gabi's Live Cam & Video Studio</h1>
         
-        <div class="source-controls">
+        <!-- Sursă Media Live sau Încărcare -->
+        <div class="controls-row">
             <button class="btn btn-primary" id="btn-start-camera">📹 Pornire Cameră</button>
             <button class="btn btn-secondary" id="btn-switch-camera">🔄 Schimbă Camera</button>
             <label class="btn btn-secondary">
@@ -450,22 +275,28 @@ HTML
             </label>
         </div>
 
+        <!-- Ecran Previzualizare Live / Captură -->
         <div class="media-container">
+            <div id="recording-badge" class="recording-badge">● ÎNREGISTRARE VIDEO</div>
             <video id="video" autoplay playsinline></video>
             <canvas id="canvas"></canvas>
         </div>
 
-        <div class="source-controls" style="margin-bottom: 10px;">
-            <button class="btn btn-capture" id="btn-capture" style="display: none;">📸 Capturează Instantaneu</button>
-            <button class="btn btn-secondary" id="btn-reset-camera" style="display: none;">↩️ Înapoi la Video Live</button>
+        <!-- Acțiuni Foto / Video în timp real -->
+        <div class="controls-row">
+            <button class="btn btn-success" id="btn-snap-photo">📸 Fă Poză (Instant)</button>
+            <button class="btn btn-danger" id="btn-start-record">🔴 Înregistrează Video</button>
+            <button class="btn btn-secondary" id="btn-stop-record" style="display:none;">⏹️ Oprește & Salvează Video</button>
+            <button class="btn btn-secondary" id="btn-reset" style="display: none;">↩️ Înapoi la Camera Live</button>
         </div>
 
+        <!-- Panou Ajustări Manuale (Se aplică LIVE și pe video și pe poza statică) -->
         <div class="adjustments-panel">
-            <h3>Ajustări fine manuale</h3>
+            <h3>Ajustări în timp real (Live)</h3>
             <div class="control-group">
                 <label>Luminozitate</label>
                 <input type="range" id="slider-brightness" min="50" max="200" value="100">
-                < those><span id="val-brightness">100%</span>
+                <span id="val-brightness">100%</span>
             </div>
             <div class="control-group">
                 <label>Contrast</label>
@@ -479,8 +310,9 @@ HTML
             </div>
         </div>
 
+        <!-- Carusel Filtre Presetate -->
         <div class="filters-section">
-            <div class="filters-title">Alege un filtru rapid:</div>
+            <div class="filters-title">Alege un filtru Live:</div>
             <div class="filters-carousel">
                 <button class="filter-btn active" data-filter="none">Original</button>
                 <button class="filter-btn" data-filter="grayscale(100%)">Alb-Negru</button>
@@ -488,17 +320,19 @@ HTML
                 <button class="filter-btn" data-filter="invert(100%)">Negativ</button>
                 <button class="filter-btn" data-filter="hue-rotate(90deg)">Cyberpunk</button>
                 <button class="filter-btn" data-filter="hue-rotate(180deg)">Neon Cosmic</button>
-                <button class="filter-btn" data-filter="blur(3px)">Soft Dream</button>
+                <button class="filter-btn" data-filter="blur(2px)">Soft Dream</button>
                 <button class="filter-btn" data-filter="contrast(170%) saturate(140%)">Vibrant Pop</button>
             </div>
         </div>
 
-        <button class="btn btn-save" id="btn-save">💾 SALVEAZĂ ÎN GALERIE ȘI APLICAȚIE</button>
+        <!-- Buton Salvare pentru modul Foto Static -->
+        <button class="btn btn-success btn-action-main" id="btn-save-photo" style="display: none;">💾 SALVEAZĂ POZA ACUM</button>
 
+        <!-- Galerie Internă -->
         <div class="gallery-section">
             <h2>Galeria Locală (În Aplicație)</h2>
             <div id="gallery-grid" class="gallery-grid">
-                <span class="empty-text">Nicio imagine salvată în memoria aplicației.</span>
+                <span class="empty-text">Nicio imagine sau video salvat local în aplicație.</span>
             </div>
         </div>
     </div>
@@ -510,11 +344,14 @@ HTML
         
         const btnStartCamera = document.getElementById('btn-start-camera');
         const btnSwitchCamera = document.getElementById('btn-switch-camera');
-        const btnCapture = document.getElementById('btn-capture');
-        const btnResetCamera = document.getElementById('btn-reset-camera');
-        const btnSave = document.getElementById('btn-save');
+        const btnSnapPhoto = document.getElementById('btn-snap-photo');
+        const btnStartRecord = document.getElementById('btn-start-record');
+        const btnStopRecord = document.getElementById('btn-stop-record');
+        const btnReset = document.getElementById('btn-reset');
+        const btnSavePhoto = document.getElementById('btn-save-photo');
         const fileInput = document.getElementById('file-input');
         const galleryGrid = document.getElementById('gallery-grid');
+        const recordingBadge = document.getElementById('recording-badge');
 
         // Slidere
         const sliderBrightness = document.getElementById('slider-brightness');
@@ -522,40 +359,49 @@ HTML
         const sliderSaturation = document.getElementById('slider-saturation');
 
         let stream = null;
+        let mediaRecorder = null;
+        let recordedChunks = [];
         let originalImage = new Image();
-        let currentFacingMode = "environment"; // "user" pentru selfie, "environment" pentru camera spate
+        let currentFacingMode = "environment";
         let selectedFilterPreset = "none";
-        let isUsingStaticImage = false;
+        let isModeStatic = false;
         let db;
 
         // 1. Inițializare Bază de Date Internă (IndexedDB)
-        const dbRequest = indexedDB.open('GabiProCamDB', 1);
+        const dbRequest = indexedDB.open('GabiProCamStudioDB', 1);
         dbRequest.onupgradeneeded = (e) => {
-            e.target.result.createObjectStore('photos', { autoIncrement: true });
+            e.target.result.createObjectStore('media', { autoIncrement: true });
         };
         dbRequest.onsuccess = (e) => {
             db = e.target.result;
             renderInternalGallery();
         };
 
-        // 2. Control Cameră Live
+        // 2. Control Cameră Live cu Previzualizare Filtre Instante
         async function startLiveVideo() {
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
             }
             try {
                 stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: currentFacingMode },
-                    audio: false
+                    video: { facingMode: currentFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
+                    audio: true // activat pentru video record
                 });
                 video.srcObject = stream;
+                
+                // Schimbăm vizibilitatea pe ecranul live
                 video.style.display = 'block';
                 canvas.style.display = 'none';
-                btnCapture.style.display = 'inline-block';
-                btnResetCamera.style.display = 'none';
-                isUsingStaticImage = false;
+                
+                btnSnapPhoto.style.display = 'inline-flex';
+                btnStartRecord.style.display = 'inline-flex';
+                btnReset.style.display = 'none';
+                btnSavePhoto.style.display = 'none';
+                isModeStatic = false;
+                
+                updateCSSFilterStyle(); // aplică filtrele pe stream direct
             } catch (err) {
-                alert("Nu s-a putut accesa camera. Verifică permisiunile sau folosește opțiunea 'Încarcă Poză'.");
+                alert("Nu s-a putut accesa camera. Încarcă o poză sau verifică permisiunile HTTPS.");
             }
         }
 
@@ -566,90 +412,35 @@ HTML
             if(stream) startLiveVideo();
         });
 
-        // 3. Capturare cadru din Video Live
-        btnCapture.addEventListener('click', () => {
-            if (!stream) return;
-            
-            // Setăm dimensiunile canvas-ului la dimensiunea video-ului redat
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            
-            // Desenăm cadrul video actual direct pe canvas
-            ctx.filter = 'none';
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            // Salvăm starea ca imagine statică în memorie pentru modificări ulterioare
-            originalImage.src = canvas.toDataURL('image/png');
-            
-            originalImage.onload = () => {
-                video.style.display = 'none';
-                canvas.style.display = 'block';
-                btnCapture.style.display = 'none';
-                btnResetCamera.style.display = 'inline-block';
-                isUsingStaticImage = true;
-                applyAllEffects();
-            };
-        });
-
-        btnResetCamera.addEventListener('click', () => {
-            video.style.display = 'block';
-            canvas.style.display = 'none';
-            btnCapture.style.display = 'inline-block';
-            btnResetCamera.style.display = 'none';
-            isUsingStaticImage = false;
-        });
-
-        // 4. Încărcare fișier static din telefon / PC
-        fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-                stream = null;
-            }
-
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                originalImage.onload = () => {
-                    canvas.width = originalImage.width;
-                    canvas.height = originalImage.height;
-                    video.style.display = 'none';
-                    canvas.style.display = 'block';
-                    btnCapture.style.display = 'none';
-                    btnResetCamera.style.display = 'none';
-                    isUsingStaticImage = true;
-                    applyAllEffects();
-                };
-                originalImage.src = event.target.result;
-            };
-            reader.readAsDataURL(file);
-        });
-
-        // 5. Aplicarea Concomitentă a Efectelor (Preset + Slidere)
-        function applyAllEffects() {
-            if (!isUsingStaticImage || !originalImage.src) return;
-
-            // Colectăm valorile din slidere
+        // 3. Aplicarea Filtrelor prin stil direct CSS (Oferă performanță LIVE de 60fps)
+        function updateCSSFilterStyle() {
             const b = sliderBrightness.value;
             const c = sliderContrast.value;
             const s = sliderSaturation.value;
+            const manualFilters = `brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
+            const fullFilterString = selectedFilterPreset === "none" ? manualFilters : `${selectedFilterPreset} ${manualFilters}`;
+            
+            // Filtrul se aplică pe elementul activ (Video live SAU Canvas static)
+            if (!isModeStatic) {
+                video.style.filter = fullFilterString;
+            } else {
+                // Dacă suntem în mod static, redesenăm direct cu filtrul nativ din canvas context
+                applyFiltersToCanvasContext(fullFilterString);
+            }
+        }
 
-            // Construim filtrul combinat (Filtru Preset + Ajustări Manuale)
-            let manualFilters = `brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
-            
+        function applyFiltersToCanvasContext(filterString) {
+            if (!originalImage.src) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.filter = selectedFilterPreset === "none" ? manualFilters : `${selectedFilterPreset} ${manualFilters}`;
-            
-            // Redesenăm imaginea originală cu toate filtrele cumulate
+            ctx.filter = filterString;
             ctx.drawImage(originalImage, 0, 0, canvas.width, canvas.height);
         }
 
-        // Ascultători evenimente pentru slidere
+        // Ascultători pentru evenimentele de glisare (Slidere)
         [sliderBrightness, sliderContrast, sliderSaturation].forEach(slider => {
             slider.addEventListener('input', (e) => {
                 document.getElementById(`val-${e.target.id.split('-')[1]}`).innerText = e.target.value + '%';
-                applyAllEffects();
+                updateCSSFilterStyle();
             });
         });
 
@@ -658,58 +449,174 @@ HTML
             button.addEventListener('click', (e) => {
                 document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
                 e.target.classList.add('active');
-                
                 selectedFilterPreset = e.target.getAttribute('data-filter');
-                applyAllEffects();
+                updateCSSFilterStyle();
             });
         });
 
-        // 6. Funcția de Salvare Dublă
-        btnSave.addEventListener('click', () => {
-            if (!isUsingStaticImage || !originalImage.src) {
-                alert("Fă o fotografie cu camera sau încarcă una înainte de salvare!");
-                return;
-            }
-
-            const finalDataUrl = canvas.toDataURL('image/png');
-
-            // METODA A: Salvare directă în Galerie / Descărcări prin element virtual link
-            const downloadLink = document.createElement('a');
-            downloadLink.download = `GabiCam_${Date.now()}.png`;
-            downloadLink.href = finalDataUrl;
-            downloadLink.click();
-
-            // METODA B: Salvare în interiorul aplicației (Baza de date locală IndexedDB)
-            if (db) {
-                const transaction = db.transaction(['photos'], 'readwrite');
-                const store = transaction.objectStore('photos');
-                store.add(finalDataUrl);
+        // 4. Capturare Instantanee (Fă Poză)
+        btnSnapPhoto.addEventListener('click', () => {
+            if (!stream) return alert("Pornește camera mai întâi!");
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            // Copiem cadrul video curat în imaginea de fundal
+            const tempCtx = canvas.getContext('2d');
+            tempCtx.filter = 'none';
+            tempCtx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            originalImage.src = canvas.toDataURL('image/png');
+            
+            originalImage.onload = () => {
+                isModeStatic = true;
+                video.style.display = 'none';
+                canvas.style.display = 'block';
                 
-                transaction.oncomplete = () => {
-                    renderInternalGallery();
+                btnSnapPhoto.style.display = 'none';
+                btnStartRecord.style.display = 'none';
+                btnReset.style.display = 'inline-flex';
+                btnSavePhoto.style.display = 'block';
+                
+                updateCSSFilterStyle(); // randează imaginea cu filtrele selectate
+            };
+        });
+
+        // 5. Modul de Înregistrare Video (Include filtrele deoarece înregistrăm fluxul randat sau procesat)
+        btnStartRecord.addEventListener('click', () => {
+            if (!stream) return alert("Pornește camera mai întâi!");
+            
+            recordedChunks = [];
+            // Folosim un stream unificat sau streamul video direct
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+            
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) recordedChunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                const videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
+                const videoUrl = URL.createObjectURL(videoBlob);
+
+                // A. Salvare Nativă în Galerie prin descărcare fișier video
+                const downloadLink = document.createElement('a');
+                downloadLink.download = `GabiVideo_${Date.now()}.webm`;
+                downloadLink.href = videoUrl;
+                downloadLink.click();
+
+                // B. Salvare în Aplicație (Salvare sub formă de Blob/Base64 în IndexedDB)
+                const reader = new FileReader();
+                reader.readAsDataURL(videoBlob);
+                reader.onloadend = () => {
+                    saveToDB({ type: 'video', src: reader.result });
                 };
+            };
+
+            mediaRecorder.start();
+            recordingBadge.style.display = 'block';
+            btnStartRecord.style.display = 'none';
+            btnStopRecord.style.display = 'inline-flex';
+            btnSnapPhoto.style.disabled = true;
+        });
+
+        btnStopRecord.addEventListener('click', () => {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                recordingBadge.style.display = 'none';
+                btnStartRecord.style.display = 'inline-flex';
+                btnStopRecord.style.display = 'none';
+                btnSnapPhoto.style.disabled = false;
             }
         });
 
-        // 7. Randarea Galeriei din Aplicație
+        // 6. Încărcare fișier static extern (Poză)
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (stream) { stream.getTracks().forEach(track => track.stop()); stream = null; }
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                originalImage.onload = () => {
+                    canvas.width = originalImage.width;
+                    canvas.height = originalImage.height;
+                    video.style.display = 'none';
+                    canvas.style.display = 'block';
+                    btnSnapPhoto.style.display = 'none';
+                    btnStartRecord.style.display = 'none';
+                    btnReset.style.display = 'inline-flex';
+                    btnSavePhoto.style.display = 'block';
+                    isModeStatic = true;
+                    updateCSSFilterStyle();
+                };
+                originalImage.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        btnReset.addEventListener('click', startLiveVideo);
+
+        // 7. Salvare Finală Poză Procesată
+        btnSavePhoto.addEventListener('click', () => {
+            if (!isModeStatic || !originalImage.src) return;
+
+            const finalDataUrl = canvas.toDataURL('image/png');
+
+            // A. Salvare în Galerie / Telefon
+            const downloadLink = document.createElement('a');
+            downloadLink.download = `GabiFoto_${Date.now()}.png`;
+            downloadLink.href = finalDataUrl;
+            downloadLink.click();
+
+            // B. Salvare în Aplicație
+            saveToDB({ type: 'image', src: finalDataUrl });
+        });
+
+        function saveToDB(item) {
+            if (!db) return;
+            const transaction = db.transaction(['media'], 'readwrite');
+            const store = transaction.objectStore('media');
+            store.add(item);
+            transaction.oncomplete = () => renderInternalGallery();
+        }
+
+        // 8. Randarea Galeriei Unificate (Poze + Clipuri Video)
         function renderInternalGallery() {
             if (!db) return;
-            const transaction = db.transaction(['photos'], 'readonly');
-            const store = transaction.objectStore('photos');
+            const transaction = db.transaction(['media'], 'readonly');
+            const store = transaction.objectStore('media');
             const getAllRequest = store.getAll();
 
             getAllRequest.onsuccess = () => {
                 galleryGrid.innerHTML = '';
-                const photos = getAllRequest.result;
-                if (photos.length === 0) {
-                    galleryGrid.innerHTML = '<span class="empty-text">Nicio imagine salvată în memoria aplicației.</span>';
+                const items = getAllRequest.result;
+                if (items.length === 0) {
+                    galleryGrid.innerHTML = '<span class="empty-text">Nicio imagine sau video salvat local în aplicație.</span>';
                     return;
                 }
-                // Afișăm pozele de la cea mai nouă la cea mai veche
-                photos.reverse().forEach(photoSrc => {
-                    const img = document.createElement('img');
-                    img.src = photoSrc;
-                    galleryGrid.appendChild(img);
+                
+                items.reverse().forEach(item => {
+                    const wrap = document.createElement('div');
+                    wrap.className = 'gallery-item';
+                    
+                    if (item.type === 'image') {
+                        const img = document.createElement('img');
+                        img.src = item.src;
+                        wrap.appendChild(img);
+                    } else if (item.type === 'video') {
+                        const vid = document.createElement('video');
+                        vid.src = item.src;
+                        vid.muted = true;
+                        vid.controls = true;
+                        wrap.appendChild(vid);
+                        
+                        const icon = document.createElement('div');
+                        icon.className = 'video-icon';
+                        icon.innerText = 'VIDEO';
+                        wrap.appendChild(icon);
+                    }
+                    galleryGrid.appendChild(wrap);
                 });
             };
         }
