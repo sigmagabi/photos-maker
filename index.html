@@ -326,7 +326,6 @@
 
         // Upload file
         fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[fileInput.id === 'file-input' ? 0 : 0]; // default safe match
             const selectedFile = e.target.files[0];
             if (!selectedFile) return;
             if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
