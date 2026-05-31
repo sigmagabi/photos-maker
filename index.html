@@ -218,7 +218,7 @@
             if(stream) startCamera();
         });
 
-        // Live Filters Engine (ACUM REPARAT CORECT)
+        // Live Filters Engine - Fixed Connectivity
         function applyFilters() {
             const b = document.getElementById('s-brightness').value;
             const c = document.getElementById('s-contrast').value;
@@ -235,16 +235,16 @@
             }
         }
 
-        // Ascultători pentru mișcarea sliderelor
+        // Event listeners for sliders
         ['s-brightness', 's-contrast', 's-saturation'].forEach(id => {
             document.getElementById(id).addEventListener('input', (e) => {
-                const tipEfect = id.split('-')[1]; // preia 'brightness', 'contrast' sau 'saturation'
+                const tipEfect = id.split('-')[1];
                 document.getElementById(`v-${tipEfect}`).innerText = e.target.value + '%';
                 applyFilters();
             });
         });
 
-        // Ascultători pentru butoanele de filtre presetate
+        // Event listeners for preset buttons
         document.querySelectorAll('.filter-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -324,10 +324,11 @@
             }
         });
 
-        // Upload fișier
+        // Upload file
         fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+            const file = e.target.files[fileInput.id === 'file-input' ? 0 : 0]; // default safe match
+            const selectedFile = e.target.files[0];
+            if (!selectedFile) return;
             if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
             const r = new FileReader();
             r.onload = (ev) => {
@@ -340,12 +341,12 @@
                 };
                 originalImage.src = ev.target.result;
             };
-            r.readAsDataURL(file);
+            r.readAsDataURL(selectedFile);
         });
 
         btnBack.addEventListener('click', startCamera);
 
-        // Salvare Foto Finală
+        // Save Final Photo
         btnSaveImg.addEventListener('click', () => {
             if(!isStatic) return;
             const data = canvas.toDataURL('image/png');
