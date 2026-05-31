@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gabi Advanced Filter Cam</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 15px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 550px;
+            background: #1e1e1e;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 15px;
+            color: #00adb5;
+        }
+
+        /* Zona Media (Video + Canvas) */
+        .media-container {
+            width: 100%;
+            position: relative;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 15px;
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        video, canvas {
+            width: 100%;
+            max-height: 450px;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+
+        video {
+            display: block;
+        }
+
+        canvas {
+            display: none;
+        }
+
+        /* Butoane Principale Sursă */
+        .source-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 25px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            font-size: 14px;
+        }
+
+        .btn:active { transform: scale(0.97); }
+
+        .btn-primary { background: #00adb5; color: white; }
+        .btn-secondary { background: #393e46; color: #eeeeee; }
+        .btn-capture { background: #ff5722; color: white; }
+        .btn-save { background: #4caf50; color: white; width: 100%; font-size: 16px; padding: 12px; margin-top: 10px; }
+
+        input[type="file"] { display: none; }
+
+        /* Slidere Ajustări */
+        .adjustments-panel {
+            background: #2d2d2d;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            text-align: left;
+        }
+
+        .adjustments-panel h3 {
+            font-size: 14px;
+            color: #00adb5;
+            margin-bottom: 10px;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .control-group label {
+            width: 90px;
+            font-size: 13px;
+            color: #ccc;
+        }
+
+        .control-group input[type="range"] {
+            flex: 1;
+            accent-color: #00adb5;
+            cursor: pointer;
+        }
+
+        .control-group span {
+            width: 40px;
+            text-align: right;
+            font-size: 12px;
+            color: #aaa;
+            margin-left: 5px;
+        }
+
+        /* Carusel Filtre */
+        .filters-section {
+            text-align: left;
+            margin-bottom: 15px;
+        }
+
+        .filters-title {
+            font-size: 14px;
+            color: #aaa;
+            margin-bottom: 5px;
+        }
+
+        .filters-carousel {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+        }
+
+        .filters-carousel::-webkit-scrollbar { height: 5px; }
+        .filters-carousel::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
+
+        .filter-btn {
+            flex: 0 0 auto;
+            padding: 6px 14px;
+            background: #2d2d2d;
+            border: 2px solid transparent;
+            color: #fff;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .filter-btn.active {
+            background: #00adb5;
+            border-color: #fff;
+        }
+
+        /* Galerie */
+        .gallery-section {
+            margin-top: 20px;
+            text-align: left;
+        }
+
+        .gallery-section h2 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            border-left: 4px solid #00adb5;
+            padding-left: 6px;
+        }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
+            gap: 8px;
+            max-height: 160px;
+            overflow-y: auto;
+        }
+
+        .gallery-grid img {
+            width: 100%;
+            height: 75px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid #333;
+        }
+
+        .empty-text { color: #555; font-size: 13px; font-style: italic; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Gabi's Pro Filter Cam</h1>
+        
+        <div class="source-controls">
+            <button class="btn btn-primary" id="btn-start-camera">📹 Pornire Cameră</button>
+            <button class="btn btn-secondary" id="btn-switch-camera">🔄 Schimbă Camera</button>
+            <label class="btn btn-secondary">
+                <input type="file" id="file-input" accept="image/*">
+                📁 Încarcă Poză
+            </label>
+        </div>
+
+        <div class="media-container">
+            <video id="video" autoplay playsinline></video>
+            <canvas id="canvas"></canvas>
+        </div>
+
+        <div class="source-controls" style="margin-bottom: 10px;">
+            <button class="btn btn-capture" id="btn-capture" style="display: none;">📸 Capturează Instantaneu</button>
+            <button class="btn btn-secondary" id="btn-reset-camera" style="display: none;">↩️ Înapoi la Video Live</button>
+        </div>
+
+        <div class="adjustments-panel">
+            <h3>Ajustări fine manuale</h3>
+            <div class="control-group">
+                <label>Luminozitate</label>
+                <input type="range" id="slider-brightness" min="50" max="200" value="100">
+                < those><span id="val-brightness">100%</span>
+            </div>
+            <div class="control-group">
+                <label>Contrast</label>
+                <input type="range" id="slider-contrast" min="50" max="200" value="100">
+                <span id="val-contrast">100%</span>
+            </div>
+            <div class="control-group">
+                <label>Saturație</label>
+                <input type="range" id="slider-saturation" min="0" max="200" value="100">
+                <span id="val-saturation">100%</span>
+            </div>
+        </div>
+
+        <div class="filters-section">
+            <div class="filters-title">Alege un filtru rapid:</div>
+            <div class="filters-carousel">
+                <button class="filter-btn active" data-filter="none">Original</button>
+                <button class="filter-btn" data-filter="grayscale(100%)">Alb-Negru</button>
+                <button class="filter-btn" data-filter="sepia(100%)">Vintage Sepia</button>
+                <button class="filter-btn" data-filter="invert(100%)">Negativ</button>
+                <button class="filter-btn" data-filter="hue-rotate(90deg)">Cyberpunk</button>
+                <button class="filter-btn" data-filter="hue-rotate(180deg)">Neon Cosmic</button>
+                <button class="filter-btn" data-filter="blur(3px)">Soft Dream</button>
+                <button class="filter-btn" data-filter="contrast(170%) saturate(140%)">Vibrant Pop</button>
+            </div>
+        </div>
+
+        <button class="btn btn-save" id="btn-save">💾 SALVEAZĂ ÎN GALERIE ȘI APLICAȚIE</button>
+
+        <div class="gallery-section">
+            <h2>Galeria Locală (În Aplicație)</h2>
+            <div id="gallery-grid" class="gallery-grid">
+                <span class="empty-text">Nicio imagine salvată în memoria aplicației.</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        const btnStartCamera = document.getElementById('btn-start-camera');
+        const btnSwitchCamera = document.getElementById('btn-switch-camera');
+        const btnCapture = document.getElementById('btn-capture');
+        const btnResetCamera = document.getElementById('btn-reset-camera');
+        const btnSave = document.getElementById('btn-save');
+        const fileInput = document.getElementById('file-input');
+        const galleryGrid = document.getElementById('gallery-grid');
+
+        // Slidere
+        const sliderBrightness = document.getElementById('slider-brightness');
+        const sliderContrast = document.getElementById('slider-contrast');
+        const sliderSaturation = document.getElementById('slider-saturation');
+
+        let stream = null;
+        let originalImage = new Image();
+        let currentFacingMode = "environment"; // "user" pentru selfie, "environment" pentru camera spate
+        let selectedFilterPreset = "none";
+        let isUsingStaticImage = false;
+        let db;
+
+        // 1. Inițializare Bază de Date Internă (IndexedDB)
+        const dbRequest = indexedDB.open('GabiProCamDB', 1);
+        dbRequest.onupgradeneeded = (e) => {
+            e.target.result.createObjectStore('photos', { autoIncrement: true });
+        };
+        dbRequest.onsuccess = (e) => {
+            db = e.target.result;
+            renderInternalGallery();
+        };
+
+        // 2. Control Cameră Live
+        async function startLiveVideo() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: currentFacingMode },
+                    audio: false
+                });
+                video.srcObject = stream;
+                video.style.display = 'block';
+                canvas.style.display = 'none';
+                btnCapture.style.display = 'inline-block';
+                btnResetCamera.style.display = 'none';
+                isUsingStaticImage = false;
+            } catch (err) {
+                alert("Nu s-a putut accesa camera. Verifică permisiunile sau folosește opțiunea 'Încarcă Poză'.");
+            }
+        }
+
+        btnStartCamera.addEventListener('click', startLiveVideo);
+        
+        btnSwitchCamera.addEventListener('click', () => {
+            currentFacingMode = (currentFacingMode === "user") ? "environment" : "user";
+            if(stream) startLiveVideo();
+        });
+
+        // 3. Capturare cadru din Video Live
+        btnCapture.addEventListener('click', () => {
+            if (!stream) return;
+            
+            // Setăm dimensiunile canvas-ului la dimensiunea video-ului redat
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            // Desenăm cadrul video actual direct pe canvas
+            ctx.filter = 'none';
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Salvăm starea ca imagine statică în memorie pentru modificări ulterioare
+            originalImage.src = canvas.toDataURL('image/png');
+            
+            originalImage.onload = () => {
+                video.style.display = 'none';
+                canvas.style.display = 'block';
+                btnCapture.style.display = 'none';
+                btnResetCamera.style.display = 'inline-block';
+                isUsingStaticImage = true;
+                applyAllEffects();
+            };
+        });
+
+        btnResetCamera.addEventListener('click', () => {
+            video.style.display = 'block';
+            canvas.style.display = 'none';
+            btnCapture.style.display = 'inline-block';
+            btnResetCamera.style.display = 'none';
+            isUsingStaticImage = false;
+        });
+
+        // 4. Încărcare fișier static din telefon / PC
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                originalImage.onload = () => {
+                    canvas.width = originalImage.width;
+                    canvas.height = originalImage.height;
+                    video.style.display = 'none';
+                    canvas.style.display = 'block';
+                    btnCapture.style.display = 'none';
+                    btnResetCamera.style.display = 'none';
+                    isUsingStaticImage = true;
+                    applyAllEffects();
+                };
+                originalImage.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // 5. Aplicarea Concomitentă a Efectelor (Preset + Slidere)
+        function applyAllEffects() {
+            if (!isUsingStaticImage || !originalImage.src) return;
+
+            // Colectăm valorile din slidere
+            const b = sliderBrightness.value;
+            const c = sliderContrast.value;
+            const s = sliderSaturation.value;
+
+            // Construim filtrul combinat (Filtru Preset + Ajustări Manuale)
+            let manualFilters = `brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.filter = selectedFilterPreset === "none" ? manualFilters : `${selectedFilterPreset} ${manualFilters}`;
+            
+            // Redesenăm imaginea originală cu toate filtrele cumulate
+            ctx.drawImage(originalImage, 0, 0, canvas.width, canvas.height);
+        }
+
+        // Ascultători evenimente pentru slidere
+        [sliderBrightness, sliderContrast, sliderSaturation].forEach(slider => {
+            slider.addEventListener('input', (e) => {
+                document.getElementById(`val-${e.target.id.split('-')[1]}`).innerText = e.target.value + '%';
+                applyAllEffects();
+            });
+        });
+
+        // Ascultători pentru Caruselul de Filtre
+        document.querySelectorAll('.filter-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+                e.target.classList.add('active');
+                
+                selectedFilterPreset = e.target.getAttribute('data-filter');
+                applyAllEffects();
+            });
+        });
+
+        // 6. Funcția de Salvare Dublă
+        btnSave.addEventListener('click', () => {
+            if (!isUsingStaticImage || !originalImage.src) {
+                alert("Fă o fotografie cu camera sau încarcă una înainte de salvare!");
+                return;
+            }
+
+            const finalDataUrl = canvas.toDataURL('image/png');
+
+            // METODA A: Salvare directă în Galerie / Descărcări prin element virtual link
+            const downloadLink = document.createElement('a');
+            downloadLink.download = `GabiCam_${Date.now()}.png`;
+            downloadLink.href = finalDataUrl;
+            downloadLink.click();
+
+            // METODA B: Salvare în interiorul aplicației (Baza de date locală IndexedDB)
+            if (db) {
+                const transaction = db.transaction(['photos'], 'readwrite');
+                const store = transaction.objectStore('photos');
+                store.add(finalDataUrl);
+                
+                transaction.oncomplete = () => {
+                    renderInternalGallery();
+                };
+            }
+        });
+
+        // 7. Randarea Galeriei din Aplicație
+        function renderInternalGallery() {
+            if (!db) return;
+            const transaction = db.transaction(['photos'], 'readonly');
+            const store = transaction.objectStore('photos');
+            const getAllRequest = store.getAll();
+
+            getAllRequest.onsuccess = () => {
+                galleryGrid.innerHTML = '';
+                const photos = getAllRequest.result;
+                if (photos.length === 0) {
+                    galleryGrid.innerHTML = '<span class="empty-text">Nicio imagine salvată în memoria aplicației.</span>';
+                    return;
+                }
+                // Afișăm pozele de la cea mai nouă la cea mai veche
+                photos.reverse().forEach(photoSrc => {
+                    const img = document.createElement('img');
+                    img.src = photoSrc;
+                    galleryGrid.appendChild(img);
+                });
+            };
+        }
+    </script>
+</body>
+</html>
