@@ -92,7 +92,7 @@
         .control-group { display: flex; align-items: center; margin-bottom: 8px; }
         .control-group label { width: 85px; font-size: 12px; color: #ccc; }
         .control-group input[type="range"] { flex: 1; accent-color: #00adb5; }
-        .control-group span { width: 35px; text-align: right; font-size: 11px; color: #aaa; }
+        .control-group span { width: 35px; text-align: right; font-size: 11px; color: #aaa; margin-left: 5px; }
 
         .filters-section { text-align: left; margin-bottom: 15px; }
         .filters-carousel { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; }
@@ -194,7 +194,6 @@
         async function startCamera() {
             if (stream) stream.getTracks().forEach(t => t.stop());
             try {
-                // Încercăm doar camera prima dată pentru a evita blocarea dacă microfonul e refuzat
                 stream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: currentFacingMode, width: { ideal: 640 } },
                     audio: false 
@@ -219,9 +218,14 @@
             if(stream) startCamera();
         });
 
-        // Live Filters Engine
+        // Live Filters Engine (ACUM REPARAT CORECT)
         function applyFilters() {
-            const filterStr = `${selectedPreset} brightness(${document.getElementById('s-brightness').value}%) contrast(${document.getElementById('s-contrast').value}%) saturate(${document.getElementById('s-saturation').value}%)`;
+            const b = document.getElementById('s-brightness').value;
+            const c = document.getElementById('s-contrast').value;
+            const s = document.getElementById('s-saturation').value;
+            
+            const filterStr = `${selectedPreset} brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
+            
             if (!isStatic) {
                 video.style.filter = filterStr;
             } else if (originalImage.src) {
@@ -231,13 +235,16 @@
             }
         }
 
+        // Ascultători pentru mișcarea sliderelor
         ['s-brightness', 's-contrast', 's-saturation'].forEach(id => {
             document.getElementById(id).addEventListener('input', (e) => {
-                document.getElementById(`v-${id.split('-')[1]}`).innerText = e.target.value + '%';
+                const tipEfect = id.split('-')[1]; // preia 'brightness', 'contrast' sau 'saturation'
+                document.getElementById(`v-${tipEfect}`).innerText = e.target.value + '%';
                 applyFilters();
             });
         });
 
+        // Ascultători pentru butoanele de filtre presetate
         document.querySelectorAll('.filter-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -269,21 +276,19 @@
             };
         });
 
-        // Video Recording (Smart OS Detection)
+        // Video Recording
         btnRecord.addEventListener('click', () => {
             if (!stream) return;
             recordedChunks = [];
             
-            // Verificăm ce formate suportă telefonul tău
             let options = { mimeType: 'video/webm' };
             if (!MediaRecorder.isTypeSupported('video/webm')) {
-                options = { mimeType: 'video/mp4' }; // Forțează MP4 dacă ești pe iPhone
+                options = { mimeType: 'video/mp4' };
             }
 
             try {
                 mediaRecorder = new MediaRecorder(stream, options);
             } catch(e) {
-                // Alternativă extremă dacă tot e blocat pe unele versiuni de iOS
                 mediaRecorder = new MediaRecorder(stream);
             }
 
@@ -294,13 +299,11 @@
                 const blob = new Blob(recordedChunks, { type: mime });
                 const url = URL.createObjectURL(blob);
 
-                // Salvare în telefon
                 const a = document.createElement('a');
                 a.download = `GabiVid_${Date.now()}.${ext}`;
                 a.href = url;
                 a.click();
 
-                // Salvare în App
                 const r = new FileReader();
                 r.readAsDataURL(blob);
                 r.onloadend = () => { saveMedia({ type: 'video', src: r.result }); };
