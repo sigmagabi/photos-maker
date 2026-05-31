@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gabi Live Studio Mobile Fixed</title>
+    <title>Gabi Smart Cam Studio Pro</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -38,13 +38,15 @@
             align-items: center;
             justify-content: center;
         }
-        video, canvas {
+        video { display: none; } 
+        canvas {
             width: 100%;
             max-height: 400px;
             object-fit: contain;
             border-radius: 8px;
+            display: block;
+            background: #000;
         }
-        canvas { display: none; }
         .recording-badge {
             position: absolute;
             top: 15px;
@@ -56,10 +58,8 @@
             font-size: 12px;
             font-weight: bold;
             display: none;
-            animation: blink 1s infinite;
             z-index: 10;
         }
-        @keyframes blink { 50% { opacity: 0.3; } }
         .controls-row {
             display: flex;
             gap: 8px;
@@ -108,7 +108,6 @@
         .gallery-item { position: relative; width: 100%; height: 80px; background: #000; border-radius: 6px; overflow: hidden; }
         .gallery-item img, .gallery-item video { width: 100%; height: 100%; object-fit: cover; }
         .v-icon { position: absolute; bottom: 4px; right: 4px; background: rgba(0,0,0,0.8); color: red; font-size: 9px; padding: 1px 3px; border-radius: 3px; font-weight: bold;}
-        .empty-text { color: #555; font-size: 12px; font-style: italic; }
     </style>
 </head>
 <body>
@@ -138,7 +137,7 @@
         </div>
 
         <div class="adjustments-panel">
-            <h3>Ajustări Live</h3>
+            <h3>Ajustări Live (Garanție Mobil)</h3>
             <div class="control-group"><label>Luminozitate</label><input type="range" id="s-brightness" min="50" max="200" value="100"><span id="v-brightness">100%</span></div>
             <div class="control-group"><label>Contrast</label><input type="range" id="s-contrast" min="50" max="200" value="100"><span id="v-contrast">100%</span></div>
             <div class="control-group"><label>Saturație</label><input type="range" id="s-saturation" min="0" max="200" value="100"><span id="v-saturation">100%</span></div>
@@ -151,7 +150,6 @@
                 <button class="filter-btn" data-filter="sepia(100%)">Sepia</button>
                 <button class="filter-btn" data-filter="invert(100%)">Negativ</button>
                 <button class="filter-btn" data-filter="hue-rotate(90deg)">Cyberpunk</button>
-                <button class="filter-btn" data-filter="contrast(160%) saturate(130%)">Vibrant</button>
             </div>
         </div>
 
@@ -160,7 +158,7 @@
         <div class="gallery-section">
             <h2>Galeria Aplicației</h2>
             <div id="gallery-grid" class="gallery-grid">
-                <span class="empty-text">Nicio poză/video salvat încă.</span>
+                <span style="color:#555; font-size:12px; font-style:italic;">Nicio poză salvată încă.</span>
             </div>
         </div>
     </div>
@@ -184,33 +182,80 @@
         let stream = null, mediaRecorder = null, recordedChunks = [];
         let originalImage = new Image(), currentFacingMode = "environment";
         let selectedPreset = "none", isStatic = false, db = null;
+        let animationFrameId = null;
 
-        // DB setup
         const req = indexedDB.open('GabiSmartCamDB', 2);
         req.onupgradeneeded = (e) => { e.target.result.createObjectStore('media', { autoIncrement: true }); };
         req.onsuccess = (e) => { db = e.target.result; renderGallery(); };
 
-        // Start Camera
         async function startCamera() {
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
             if (stream) stream.getTracks().forEach(t => t.stop());
             try {
                 stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: currentFacingMode, width: { ideal: 640 } },
+                    video: { facingMode: currentFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
                     audio: false 
                 });
                 video.srcObject = stream;
-                video.style.display = 'block';
-                canvas.style.display = 'none';
+                video.play();
+                
+                isStatic = false;
                 btnSnap.style.display = 'inline-block';
                 btnRecord.style.display = 'inline-block';
                 btnBack.style.display = 'none';
                 btnSaveImg.style.display = 'none';
-                isStatic = false;
-                applyFilters();
+
+                video.onloadedmetadata = () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    drawLiveCanvas();
+                };
             } catch (err) {
-                alert("Eroare cameră. Asigură-te că ești pe un site securizat (HTTPS) și ai dat permisiunea.");
+                alert("Permiteți accesul la cameră.");
             }
         }
+
+        function drawLiveCanvas() {
+            if (isStatic) return;
+            
+            const b = document.getElementById('s-brightness').value;
+            const c = document.getElementById('s-contrast').value;
+            const s = document.getElementById('s-saturation').value;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.filter = `${selectedPreset === 'none' ? '' : selectedPreset} brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            animationFrameId = requestAnimationFrame(drawLiveCanvas);
+        }
+
+        function applyStaticFilters() {
+            if (!isStatic || !originalImage.src) return;
+            const b = document.getElementById('s-brightness').value;
+            const c = document.getElementById('s-contrast').value;
+            const s = document.getElementById('s-saturation').value;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.filter = `${selectedPreset === 'none' ? '' : selectedPreset} brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
+            ctx.drawImage(originalImage, 0, 0, canvas.width, canvas.height);
+        }
+
+        ['s-brightness', 's-contrast', 's-saturation'].forEach(id => {
+            document.getElementById(id).addEventListener('input', (e) => {
+                const tip = id.split('-')[1];
+                document.getElementById(`v-${tip}`).innerText = e.target.value + '%';
+                if (isStatic) applyStaticFilters();
+            });
+        });
+
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                selectedPreset = e.target.getAttribute('data-filter');
+                if (isStatic) applyStaticFilters();
+            });
+        });
 
         btnStart.addEventListener('click', startCamera);
         btnSwitch.addEventListener('click', () => {
@@ -218,92 +263,76 @@
             if(stream) startCamera();
         });
 
-        // Live Filters Engine - Fixed Connectivity
-        function applyFilters() {
-            const b = document.getElementById('s-brightness').value;
-            const c = document.getElementById('s-contrast').value;
-            const s = document.getElementById('s-saturation').value;
-            
-            const filterStr = `${selectedPreset} brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
-            
-            if (!isStatic) {
-                video.style.filter = filterStr;
-            } else if (originalImage.src) {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.filter = filterStr;
-                ctx.drawImage(originalImage, 0, 0, canvas.width, canvas.height);
-            }
-        }
-
-        // Event listeners for sliders
-        ['s-brightness', 's-contrast', 's-saturation'].forEach(id => {
-            document.getElementById(id).addEventListener('input', (e) => {
-                const tipEfect = id.split('-')[1];
-                document.getElementById(`v-${tipEfect}`).innerText = e.target.value + '%';
-                applyFilters();
-            });
-        });
-
-        // Event listeners for preset buttons
-        document.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-                selectedPreset = e.target.getAttribute('data-filter');
-                applyFilters();
-            });
-        });
-
-        // Photo Snapshot
         btnSnap.addEventListener('click', () => {
             if (!stream) return;
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const tCtx = canvas.getContext('2d');
-            tCtx.filter = 'none';
-            tCtx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
+            isStatic = true;
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+
             originalImage.src = canvas.toDataURL('image/png');
             originalImage.onload = () => {
-                isStatic = true;
-                video.style.display = 'none';
-                canvas.style.display = 'block';
                 btnSnap.style.display = 'none';
                 btnRecord.style.display = 'none';
                 btnBack.style.display = 'inline-block';
                 btnSaveImg.style.display = 'block';
-                applyFilters();
+                applyStaticFilters();
             };
         });
 
-        // Video Recording
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            isStatic = true;
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+            
+            const r = new FileReader();
+            r.onload = (ev) => {
+                originalImage.onload = () => {
+                    canvas.width = originalImage.width;
+                    canvas.height = originalImage.height;
+                    btnSnap.style.display = 'none';
+                    btnRecord.style.display = 'none';
+                    btnBack.style.display = 'inline-block';
+                    btnSaveImg.style.display = 'block';
+                    applyStaticFilters();
+                };
+                originalImage.src = ev.target.result;
+            };
+            r.readAsDataURL(file);
+        });
+
+        btnBack.addEventListener('click', startCamera);
+
+        btnSaveImg.addEventListener('click', () => {
+            if(!isStatic) return;
+            const data = canvas.toDataURL('image/png');
+            const a = document.createElement('a');
+            a.download = `GabiPro_${Date.now()}.png`;
+            a.href = data;
+            a.click();
+            saveMedia({ type: 'image', src: data });
+        });
+
         btnRecord.addEventListener('click', () => {
             if (!stream) return;
             recordedChunks = [];
+            const canvasStream = canvas.captureStream(30);
             
-            let options = { mimeType: 'video/webm' };
-            if (!MediaRecorder.isTypeSupported('video/webm')) {
-                options = { mimeType: 'video/mp4' };
-            }
+            let options = { mimeType: 'video/webm;codecs=vp9' };
+            if (!MediaRecorder.isTypeSupported(options.mimeType)) options = { mimeType: 'video/mp4' };
 
-            try {
-                mediaRecorder = new MediaRecorder(stream, options);
-            } catch(e) {
-                mediaRecorder = new MediaRecorder(stream);
-            }
+            try { mediaRecorder = new MediaRecorder(canvasStream, options); } 
+            catch(e) { mediaRecorder = new MediaRecorder(canvasStream); }
 
             mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
             mediaRecorder.onstop = () => {
-                const mime = mediaRecorder.mimeType || 'video/mp4';
-                const ext = mime.includes('webm') ? 'webm' : 'mp4';
-                const blob = new Blob(recordedChunks, { type: mime });
+                const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'video/mp4' });
                 const url = URL.createObjectURL(blob);
-
                 const a = document.createElement('a');
-                a.download = `GabiVid_${Date.now()}.${ext}`;
+                a.download = `GabiVidPro_${Date.now()}.mp4`;
                 a.href = url;
                 a.click();
-
+                
                 const r = new FileReader();
                 r.readAsDataURL(blob);
                 r.onloadend = () => { saveMedia({ type: 'video', src: r.result }); };
@@ -321,39 +350,8 @@
                 recBadge.style.display = 'none';
                 btnRecord.style.display = 'inline-block';
                 btnStopVid.style.display = 'none';
+                startCamera();
             }
-        });
-
-        // Upload file
-        fileInput.addEventListener('change', (e) => {
-            const selectedFile = e.target.files[0];
-            if (!selectedFile) return;
-            if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-            const r = new FileReader();
-            r.onload = (ev) => {
-                originalImage.onload = () => {
-                    canvas.width = originalImage.width; canvas.height = originalImage.height;
-                    video.style.display = 'none'; canvas.style.display = 'block';
-                    btnSnap.style.display = 'none'; btnRecord.style.display = 'none';
-                    btnBack.style.display = 'inline-block'; btnSaveImg.style.display = 'block';
-                    isStatic = true; applyFilters();
-                };
-                originalImage.src = ev.target.result;
-            };
-            r.readAsDataURL(selectedFile);
-        });
-
-        btnBack.addEventListener('click', startCamera);
-
-        // Save Final Photo
-        btnSaveImg.addEventListener('click', () => {
-            if(!isStatic) return;
-            const data = canvas.toDataURL('image/png');
-            const a = document.createElement('a');
-            a.download = `GabiFoto_${Date.now()}.png`;
-            a.href = data;
-            a.click();
-            saveMedia({ type: 'image', src: data });
         });
 
         function saveMedia(item) {
@@ -370,7 +368,7 @@
                 galleryGrid.innerHTML = '';
                 const items = e.target.result;
                 if(items.length === 0) {
-                    galleryGrid.innerHTML = '<span class="empty-text">Nicio poză/video salvat încă.</span>';
+                    galleryGrid.innerHTML = '<span style="color:#555; font-size:12px; font-style:italic;">Nicio poză salvată încă.</span>';
                     return;
                 }
                 items.reverse().forEach(item => {
